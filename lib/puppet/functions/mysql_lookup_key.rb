@@ -15,6 +15,10 @@ Puppet::Functions.create_function(:mysql_lookup_key) do
   def mysql_lookup_key(key, options, context)
     return context.cached_value(key) if context.cache_has_key(key)
 
+    unless options.include?('pass')
+      raise ArgumentError, "'mysql_lookup_key': 'pass' must be declared in hiera.yaml when using this lookup_key function"
+    end
+
     result = mysql_get(key, context, options)
 
     answer = result.is_a?(Hash) ? result[key] : result
@@ -24,14 +28,19 @@ Puppet::Functions.create_function(:mysql_lookup_key) do
 
   def mysql_get(key, context, options)
     begin 
-      con = Mysql.new options['host'], options['user'], options['pass'], options['database']
-      Puppet.debug("Hiera-mysql: MySQL connection to #{options['host']} established")
-      table = options['table']
-      value = options['value_field']
-      var = options['key_field']
+      host  = options['host']        || 'localhost'
+      user  = options['user']        || 'hiera'
+      db    = options['database']    || 'hiera'
+      table = options['table']       || 'hiera'
+      value = options['value_field'] || 'value'
+      var   = options['key_field']   || 'key'
+      pass  = options['pass']
       query = "select #{value} from #{table} where #{var}=\"#{key}\""
+
+      conn = Mysql.new host, user, pass, db
+      Puppet.debug("Hiera-mysql: MySQL connection to #{options['host']} established")
       Puppet.debug("Hiera-mysql: Attempting query #{query}")
-      rs = con.query query
+      rs = conn.query query
       answer = rs.fetch_row
       if answer.is_a?(Array)
         value = answer[0]
@@ -46,10 +55,8 @@ Puppet::Functions.create_function(:mysql_lookup_key) do
       raise Puppet::DataBinding::LookupError, "Mysql connections failed #{e.errno}: #{e.error}"
 
     ensure
-      con.close if con
+      conn.close if conn
     end
   end
 
 end
-
-
