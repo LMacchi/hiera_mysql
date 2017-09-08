@@ -27,7 +27,9 @@ Puppet::Functions.create_function(:mysql_lookup_key) do
       con = Mysql.new options['host'], options['user'], options['pass'], options['database']
       Puppet.debug("Hiera-mysql: MySQL connection to #{options['host']} established")
       table = options['table']
-      query = "select val from #{table} where var=\"#{key}\""
+      value = options['value_field']
+      var = options['key_field']
+      query = "select #{value} from #{table} where #{var}=\"#{key}\""
       Puppet.debug("Hiera-mysql: Attempting query #{query}")
       rs = con.query query
       answer = rs.fetch_row
